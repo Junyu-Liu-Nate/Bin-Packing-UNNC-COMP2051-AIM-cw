@@ -1,4 +1,6 @@
 import time
+import random
+import os
 
 MAX_TIME = 30
 K = 3
@@ -25,6 +27,9 @@ class Bin:
     def getBinIndex(self):
         return self.__index
 
+    def getItemNum(self):
+        return len(self.__itemList)
+
     def getItemList(self):
         return self.__itemList
 
@@ -34,9 +39,34 @@ class Bin:
     def getCapacityLeft(self):
         return self.__capacityLeft
 
+    def getCapacityLoaded(self):
+        return self.__capacityAll - self.__capacityLeft
+
+    def setItemList(self, list):
+        self.__itemList = []
+        self.__capacityLeft = self.__capacityAll
+
+        self.__itemList = list
+        itemSizeSum = 0
+        for item in list:
+            itemSizeSum += item.getItemSize()
+        self.__capacityLeft = self.__capacityAll - itemSizeSum
+
     def addItem(self, item):
         self.__itemList.append(item)
         self.__capacityLeft -= item.getItemSize()
+
+    def removeItem(self, item):
+        itemIndex = item.getItemIndex()
+        for item2 in self.getItemList():
+            if item2.getItemIndex() == itemIndex:
+                self.getItemList().remove(item2)
+                self.__capacityLeft += item.getItemSize()
+                break
+
+    def removeAllItem(self):
+        self.__itemList = []
+        self.__capacityLeft = self.__capacityAll
 
 class Problem:
     def __init__(self, index, name, binCapacity, itemNum, bestObjective):
@@ -77,25 +107,36 @@ class Solution:
         self.__problem = problem
         self.__objective = objective
         self.__binList = binList
-        self.__feasibility = 0
+        self.__feasibility = 1
 
     def getProblem(self):
         return self.__problem
 
     def getObjective(self):
+        self.__objective = len(self.getBinList())
         return self.__objective
 
     def getBinList(self):
         return self.__binList
 
+    def setBinList(self, binList):
+        if self.checkFeasibility() == 1:
+            self.__binList = binList
+            self.__objective = len(binList)
+
     def checkFeasibility(self):
         binList = self.getBinList()
+        binCapacity = self.__problem.getBinCapacity()
         for bin in binList:
-            if bin.getCapacityLeft() < 0:
-                self.__feasibility
-                return
-        self.__feasibility
-        return
+            itemList = bin.getItemList()
+            itemSizeSum = 0
+            for item in itemList:
+                itemSizeSum += item.getItemSize()
+            if itemSizeSum > binCapacity:
+                self.__feasibility = 0
+                return self.__feasibility
+        self.__feasibility = 1
+        return self.__feasibility
 
 #--- Load problem from file ---#
 def loadProblem(fileName):
@@ -165,24 +206,140 @@ def greedy_heuristic(problem):
     initialSolution = Solution(problem, binList, len(binList))
     return initialSolution
 
-#def can_swap()
-
-#def can_move()
-
-#def apply_move()
 
 def best_descent_vns(nbIdex, currentSolution):
-    bestSolution = Solution()
     # copySolution(bestSolution, currentSolution)
+    #bestNeighbor = currentSolution
+    bestNeighbor = Solution(currentSolution.getProblem(), currentSolution.getBinList(), currentSolution.getObjective())
     # 
-    # if nbIdex == 0:
-    #     #
-    # elif nbIdex == 1:
-    #     #
+    if nbIdex == 1:
+        binList = currentSolution.getBinList()
+        for bin1 in binList:
+            for bin2 in binList:
+                if bin1.getBinIndex() == bin2.getBinIndex():
+                    continue
+
+                indicator = 0
+                for item in bin1.getItemList():
+                    if item.getItemSize() <= bin2.getCapacityLeft():
+                        indicator == 1
+                        bin2.addItem(item)
+                        bin1.removeItem(item)
+                        if bin1.getCapacityLoaded() == 0:
+                            binList.remove(bin1)
+                            break
+
+                if indicator == 1:
+                    for item in bin2.getItemList():
+                        if item.getItemSize() <= bin1.getCapacityLeft():
+                            bin1.addItem(item)
+                            bin2.removeItem(item)
+                            if bin2.getCapacityLoaded() == 0:
+                                binList.remove(bin2)
+                                break
+        
+        bestNeighbor.setBinList(binList)
+        return bestNeighbor
+
+    elif nbIdex == 2:
+        binList = currentSolution.getBinList()
+        for bin1 in binList:
+            for bin2 in binList:
+                if bin1.getBinIndex() == bin2.getBinIndex():
+                    continue
+                for bin3 in binList:
+                    if bin1.getBinIndex() == bin3.getBinIndex() or bin2.getBinIndex() == bin3.getBinIndex():
+                        continue
+
+                    # print(bin1.getCapacityLoaded() + bin2.getCapacityLoaded() + bin3.getCapacityLoaded())
+                    # if bin1.getCapacityLoaded() + bin2.getCapacityLoaded() + bin3.getCapacityLoaded() > 450:
+                    #     print([bin1.getCapacityLeft(), bin2.getCapacityLeft(), bin3.getCapacityLeft()])
+
+                    itemList = []
+                    for item in bin1.getItemList():
+                        itemList.append(item)
+                    for item in bin2.getItemList():
+                        itemList.append(item)
+                    for item in bin3.getItemList():
+                        itemList.append(item)
+                    
+                    for i in range(len(itemList) - 1):
+                        for j in range(len(itemList) - i - 1):
+                            if itemList[j].getItemSize() < itemList[j + 1].getItemSize():
+                                itemList[j], itemList[j + 1] = itemList[j + 1], itemList[j]
+
+                    bin1ItemList = bin1.getItemList()
+                    # print(len(bin1ItemList))
+                    bin2ItemList = bin2.getItemList()
+                    bin3ItemList = bin3.getItemList()
+
+                    bin1.removeAllItem()
+                    #print([len(bin1ItemList), len(bin1.getItemList())])
+                    # print("-----------")
+                    bin2.removeAllItem()
+                    bin3.removeAllItem()
+
+                    indicator = 1
+                    counter = 0
+                    for item in itemList:
+                        if indicator == 1:
+                            if bin1.getCapacityLeft() >= item.getItemSize():
+                                bin1.addItem(item)
+                                indicator = 2
+                                counter += 1
+                            elif bin2.getCapacityLeft() >= item.getItemSize():
+                                bin2.addItem(item)
+                                indicator = 1
+                                counter += 1
+                            else:
+                                break
+                        elif indicator == 2:
+                            if bin2.getCapacityLeft() >= item.getItemSize():
+                                bin2.addItem(item)
+                                indicator = 1
+                                counter += 1
+                            elif bin1.getCapacityLeft() >= item.getItemSize():
+                                bin1.addItem(item)
+                                indicator = 2
+                                counter += 1
+                            else:
+                                break
+
+                    itemSizeSum = 0
+                    itemSizeSum1 = 0
+                    itemSizeSum2 = 0
+                    for item in itemList:
+                        itemSizeSum += item.getItemSize()
+                    for item in bin1.getItemList():
+                        itemSizeSum1 += item.getItemSize()
+                    for item in bin2.getItemList():
+                        itemSizeSum2 += item.getItemSize()
+                    # print([itemSizeSum,itemSizeSum1,itemSizeSum2])
+                    # if itemSizeSum > 450:
+                    #     os.exit()
+
+                    if itemSizeSum - (itemSizeSum1 + itemSizeSum2) > bin3.getCapacityLeft():
+                        #print("Stay")
+                        bin1.setItemList(bin1ItemList)
+                        bin2.setItemList(bin2ItemList)
+                        bin3.setItemList(bin3ItemList)
+                    else:
+                        #print("Update")
+                        if counter == len(itemList):
+                            binList.remove(bin3)
+                        else:
+                            for item in itemList[counter:]:
+                                bin3.addItem(item)
+                                # if bin3.getCapacityLeft() < 0:
+                                #     os.exit()
+
+        bestNeighbor.setBinList(binList)
+        return bestNeighbor                                        
+
     # elif nbIndex == 2:
     #     #
 
-    return bestSolution
+    return bestNeighbor
 
 def vns_shaking(solution, strength):
     # ?
@@ -195,21 +352,28 @@ def vns_shaking(solution, strength):
 def variable_neighbourhood_search(problem):
     timeStart = time.time()
     timeSpent = 0
-    nbIdex = 0
-    bestSolution = Solution(problem)
-    # currentSolution = greedy_heuristic(problem)
-    # updateBestSolution(currentSolution)
+    nbIndex = 1
+    #bestSolution = Solution(problem)
+    currentSolution = greedy_heuristic(problem)
+    bestSolution = currentSolution
 
     shakingCount = 0
     while timeSpent < MAX_TIME:
-        while nbIdex < K:
-            #neighborSolution = best_descent_vns(nb_indx+1, curt_sln)
-            # if neighborSolution.getObjective() > currentSolution.getObjective():
-            #     copy_solution(neighborSolution, currentSolution)
-            #     nbIndex=1
-            # else:
-                nbIdex += 1
-        # updateBestSolution(currentSolution)
+        while nbIndex < K:
+            neighborSolution = best_descent_vns(nbIndex, currentSolution)
+            if neighborSolution.getObjective() < currentSolution.getObjective():
+                #print("Better solution found")
+                bestSolution = neighborSolution
+                currentSolution = neighborSolution
+                nbIndex=1
+            else:
+                #print("Change neighbor")
+                nbIndex += 1
+
+        # neighborSolution = best_descent_vns(nbIndex, currentSolution)
+        # if neighborSolution.getObjective() < currentSolution.getObjective():
+        #     bestSolution = neighborSolution
+        #     currentSolution = neighborSolution
 
         gap = 1000
         if bestSolution.getProblem().getBestObjective() != 0:
@@ -232,8 +396,11 @@ problemList = loadProblem("binpack1.txt")
 #     print([item.getItemIndex(), item.getItemSize()])
 
 solution0 = greedy_heuristic(problemList[0])
-binList = solution0.getBinList()
+#solution1 = best_descent_vns(0, solution0)
+solution1 = variable_neighbourhood_search(problemList[0])
+binList = solution1.getBinList()
 print(len(binList))
+
 # for bin in binList:
 #     itemList = bin.getItemList()
 #     string = ""
@@ -242,5 +409,5 @@ print(len(binList))
 #     print(string)
 
 solutionList = []
-solutionList.append(solution0)
+solutionList.append(solution1)
 printSolution("binpack1_sln_test.txt", solutionList)
